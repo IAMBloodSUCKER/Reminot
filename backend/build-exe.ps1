@@ -90,8 +90,12 @@ if ($resolvedIconPath) {
             $offset = 6 + (16 * $frames.Count)
             foreach ($frame in $frames) {
                 $entrySize = [int]$frame.Size
-                $writer.Write([byte]($entrySize -eq 256 ? 0 : $entrySize))
-                $writer.Write([byte]($entrySize -eq 256 ? 0 : $entrySize))
+                $entryDimension = $entrySize
+                if ($entryDimension -eq 256) {
+                    $entryDimension = 0
+                }
+                $writer.Write([byte]$entryDimension)
+                $writer.Write([byte]$entryDimension)
                 $writer.Write([byte]0)
                 $writer.Write([byte]0)
                 $writer.Write([UInt16]1)
