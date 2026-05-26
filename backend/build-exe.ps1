@@ -1,5 +1,5 @@
 param(
-    [string]$AppVersion = "1.0.9",
+    [string]$AppVersion = "1.0.10",
     [string]$IconPath = "..\docs\media\label.ico"
 )
 
