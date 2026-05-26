@@ -135,12 +135,11 @@ public class ReminotMainFrame extends JFrame {
                 notificationRepository.allActiveNotification(),
                 "active reminders"
         ));
-        inputPanel.setOnAutostartToggle(this::onAutostartToggle);
-        inputPanel.setAutostartEnabled(autostartManager.isEnabled());
         inputPanel.setOnExit(this::terminateApplication);
         inputPanel.setOnDeleteById(this::deleteReminderById);
         refreshActiveReminderList();
         notificationService.start();
+        ensureAutostartEnabledByDefault();
 
         addWindowListener(new WindowAdapter() {
             @Override
@@ -525,24 +524,24 @@ public class ReminotMainFrame extends JFrame {
         });
     }
 
-    private boolean onAutostartToggle(boolean enabled) {
-        boolean applied = autostartManager.setEnabled(enabled);
+    private void ensureAutostartEnabledByDefault() {
+        if (autostartManager.isEnabled()) {
+            return;
+        }
+        boolean applied = autostartManager.setEnabled(true);
         appendLogSection("autostart");
         if (applied) {
-            console.appendDim(enabled
-                    ? "Фоновый режим при старте Windows включен."
-                    : "Фоновый режим при старте Windows выключен.");
+            console.appendDim("Фоновый режим при старте Windows включен по умолчанию.");
             console.newLine();
-            return true;
+            return;
         }
-        console.appendDim("Не удалось изменить параметр фонового режима.");
+        console.appendDim("Не удалось включить фоновый режим при старте Windows.");
         console.newLine();
         String details = autostartManager.getLastErrorMessage();
         if (!details.isBlank()) {
             console.appendDim("Причина: " + details);
             console.newLine();
         }
-        return false;
     }
 
     private void showFromTray(Notification sourceNotification) {

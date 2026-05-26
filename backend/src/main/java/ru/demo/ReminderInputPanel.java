@@ -4,7 +4,6 @@ import ru.demo.model.Notification;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
-import javax.swing.JCheckBox;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -37,8 +36,6 @@ public class ReminderInputPanel extends JPanel {
     private final Color exitButtonBaseColor = new Color(0xB63D3D);
     private final Color exitButtonFlashColor = new Color(0xFF, 0x7A, 0x7A);
     private JButton exitButton;
-    private JCheckBox autostartCheckbox;
-    private boolean autostartCheckboxInternalUpdate;
 
     private Predicate<String> onSubmit = text -> true;
     private Runnable onClean = () -> {
@@ -49,7 +46,6 @@ public class ReminderInputPanel extends JPanel {
     };
     private LongConsumer onDeleteById = id -> {
     };
-    private Predicate<Boolean> onAutostartToggle = enabled -> true;
 
     public ReminderInputPanel() {
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
@@ -142,26 +138,6 @@ public class ReminderInputPanel extends JPanel {
         JButton deleteReminder = createActionButton("Delete selected", new Color(0xD46A6A));
         deleteReminder.addActionListener(e -> deleteSelectedReminder());
 
-        autostartCheckbox = new JCheckBox("Работать в фоновом режиме при старте Windows");
-        autostartCheckbox.setOpaque(false);
-        autostartCheckbox.setForeground(TerminalPalette.DIM);
-        autostartCheckbox.setFont(TerminalPalette.MONO_SMALL);
-        autostartCheckbox.setFocusPainted(false);
-        autostartCheckbox.setAlignmentX(LEFT_ALIGNMENT);
-        autostartCheckbox.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
-        autostartCheckbox.addActionListener(e -> {
-            if (autostartCheckboxInternalUpdate) {
-                return;
-            }
-            boolean selected = autostartCheckbox.isSelected();
-            boolean accepted = onAutostartToggle.test(selected);
-            if (!accepted) {
-                autostartCheckboxInternalUpdate = true;
-                autostartCheckbox.setSelected(!selected);
-                autostartCheckboxInternalUpdate = false;
-            }
-        });
-
         exitButton = createActionButton("ЗАВЕРШИТЬ РАБОТУ", exitButtonBaseColor);
         exitButton.addActionListener(e -> onExit.run());
 
@@ -179,7 +155,6 @@ public class ReminderInputPanel extends JPanel {
         add(listAll);
         add(javax.swing.Box.createRigidArea(new Dimension(0, 6)));
         add(deleteReminder);
-        add(autostartCheckbox);
         add(javax.swing.Box.createRigidArea(new Dimension(0, 10)));
         add(exitButton);
         add(javax.swing.Box.createVerticalGlue());
@@ -207,16 +182,6 @@ public class ReminderInputPanel extends JPanel {
     public void setOnDeleteById(LongConsumer handler) {
         this.onDeleteById = Objects.requireNonNullElse(handler, id -> {
         });
-    }
-
-    public void setOnAutostartToggle(Predicate<Boolean> handler) {
-        this.onAutostartToggle = Objects.requireNonNullElse(handler, enabled -> true);
-    }
-
-    public void setAutostartEnabled(boolean enabled) {
-        autostartCheckboxInternalUpdate = true;
-        autostartCheckbox.setSelected(enabled);
-        autostartCheckboxInternalUpdate = false;
     }
 
     public void setActiveReminders(List<Notification> reminders) {
