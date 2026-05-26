@@ -1,0 +1,13 @@
+# IDE
+.idea/
+*.iml
+
+# Build outputs
+out/
+target/
+dist/
+release/
+build/
+
+# Java bytecode
+*.class
