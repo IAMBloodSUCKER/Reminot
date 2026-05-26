@@ -510,6 +510,11 @@ public class ReminotMainFrame extends JFrame {
     private void onNotificationFired(Notification notification) {
         SwingUtilities.invokeLater(() -> {
             refreshActiveReminderList();
+            if (isAwayFromApp()) {
+                showFromTray(notification);
+                return;
+            }
+
             appendLogSection("notification fired");
             console.appendTimestamp("[" + LocalTime.now().format(TIME) + "]");
             console.appendPlain("  fired id=");
@@ -565,6 +570,10 @@ public class ReminotMainFrame extends JFrame {
                 console.newLine();
             }
         });
+    }
+
+    private boolean isAwayFromApp() {
+        return !isVisible() || getState() == JFrame.ICONIFIED || !isFocused();
     }
 
     private void appendLogSection(String title) {
