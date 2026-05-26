@@ -43,6 +43,7 @@ import javax.swing.text.DocumentFilter;
 
 public class ReminotMainFrame extends JFrame {
 
+    private static volatile ReminotMainFrame currentInstance;
     private static final Dimension START_SIZE = new Dimension(820, 640);
     private static final int RESIZE_MARGIN = 6;
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -61,6 +62,7 @@ public class ReminotMainFrame extends JFrame {
 
     public ReminotMainFrame(boolean startHiddenInTray) {
         super("Reminot");
+        currentInstance = this;
         this.notificationService = new NotificationService(
                 notificationRepository,
                 this::onNotificationFired,
@@ -162,6 +164,13 @@ public class ReminotMainFrame extends JFrame {
                 console.newLine();
                 inputPanel.flashExitButton();
             }
+
+            @Override
+            public void windowClosed(WindowEvent e) {
+                if (currentInstance == ReminotMainFrame.this) {
+                    currentInstance = null;
+                }
+            }
         });
     }
 
@@ -188,6 +197,14 @@ public class ReminotMainFrame extends JFrame {
             frame.setVisible(true);
         }
         return frame;
+    }
+
+    public static void activateRunningInstance() {
+        ReminotMainFrame frame = currentInstance;
+        if (frame == null) {
+            return;
+        }
+        SwingUtilities.invokeLater(frame::showFromExternalLaunch);
     }
 
     private LocalDateTime askReminderDateTime(String reminderText) {
@@ -569,6 +586,16 @@ public class ReminotMainFrame extends JFrame {
                 console.newLine();
             }
         });
+    }
+
+    private void showFromExternalLaunch() {
+        if (!isVisible()) {
+            setVisible(true);
+        }
+        setExtendedState(JFrame.NORMAL);
+        toFront();
+        requestFocus();
+        inputPanel.focusInput();
     }
 
     private boolean isAwayFromApp() {
