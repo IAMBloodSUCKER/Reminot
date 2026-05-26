@@ -1,5 +1,5 @@
 param(
-    [string]$AppVersion = "1.0.7",
+    [string]$AppVersion = "1.0.8",
     [string]$IconPath = "..\docs\media\label.ico"
 )
 
@@ -44,7 +44,22 @@ if ($resolvedIconPath) {
                     $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
                     $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
                     $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-                    $graphics.DrawImage($sourceImage, 0, 0, $size, $size)
+
+                    # Enforce transparent rounded corners for Windows shortcuts.
+                    $radius = [Math]::Max(2, [int]($size * 0.18))
+                    $diameter = $radius * 2
+                    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+                    try {
+                        $path.AddArc(0, 0, $diameter, $diameter, 180, 90)
+                        $path.AddArc($size - $diameter, 0, $diameter, $diameter, 270, 90)
+                        $path.AddArc($size - $diameter, $size - $diameter, $diameter, $diameter, 0, 90)
+                        $path.AddArc(0, $size - $diameter, $diameter, $diameter, 90, 90)
+                        $path.CloseFigure()
+                        $graphics.SetClip($path)
+                        $graphics.DrawImage($sourceImage, 0, 0, $size, $size)
+                    } finally {
+                        $path.Dispose()
+                    }
 
                     $pngStream = New-Object System.IO.MemoryStream
                     try {
