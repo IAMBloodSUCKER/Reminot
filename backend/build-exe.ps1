@@ -1,5 +1,5 @@
 param(
-    [string]$AppVersion = "1.0.6",
+    [string]$AppVersion = "1.0.7",
     [string]$IconPath = "..\docs\media\label.ico"
 )
 
@@ -25,57 +25,82 @@ if (-not [string]::IsNullOrWhiteSpace($IconPath)) {
 }
 $iconArgs = @()
 if ($resolvedIconPath) {
-    function Test-IsPng {
-        param([byte[]]$Bytes)
-        if ($null -eq $Bytes -or $Bytes.Length -lt 8) {
-            return $false
-        }
-        $pngSig = [byte[]](0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
-        for ($i = 0; $i -lt 8; $i++) {
-            if ($Bytes[$i] -ne $pngSig[$i]) {
-                return $false
-            }
-        }
-        return $true
-    }
+    Add-Type -AssemblyName System.Drawing
 
-    function Convert-PngBytesToIco {
+    function Convert-ImageToIco {
         param(
-            [byte[]]$PngBytes,
+            [string]$InputPath,
             [string]$OutPath
         )
-        $stream = New-Object System.IO.MemoryStream
-        $writer = New-Object System.IO.BinaryWriter($stream)
-        $writer.Write([UInt16]0)      # reserved
-        $writer.Write([UInt16]1)      # type: icon
-        $writer.Write([UInt16]1)      # count
-        $writer.Write([byte]0)        # width (0 => 256)
-        $writer.Write([byte]0)        # height (0 => 256)
-        $writer.Write([byte]0)        # palette
-        $writer.Write([byte]0)        # reserved
-        $writer.Write([UInt16]1)      # planes
-        $writer.Write([UInt16]32)     # bit depth
-        $writer.Write([UInt32]$PngBytes.Length)
-        $writer.Write([UInt32]22)     # image offset (6 + 16)
-        $writer.Write($PngBytes)
-        $writer.Flush()
-        [System.IO.File]::WriteAllBytes($OutPath, $stream.ToArray())
-        $writer.Dispose()
-        $stream.Dispose()
+        $sizes = @(16, 24, 32, 48, 64, 128, 256)
+        $sourceImage = [System.Drawing.Image]::FromFile($InputPath)
+        $frames = New-Object System.Collections.Generic.List[Object]
+        try {
+            foreach ($size in $sizes) {
+                $bitmap = New-Object System.Drawing.Bitmap($size, $size)
+                $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+                try {
+                    $graphics.Clear([System.Drawing.Color]::Transparent)
+                    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+                    $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+                    $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+                    $graphics.DrawImage($sourceImage, 0, 0, $size, $size)
+
+                    $pngStream = New-Object System.IO.MemoryStream
+                    try {
+                        $bitmap.Save($pngStream, [System.Drawing.Imaging.ImageFormat]::Png)
+                        $frames.Add([pscustomobject]@{
+                            Size = $size
+                            Data = $pngStream.ToArray()
+                        })
+                    } finally {
+                        $pngStream.Dispose()
+                    }
+                } finally {
+                    $graphics.Dispose()
+                    $bitmap.Dispose()
+                }
+            }
+        } finally {
+            $sourceImage.Dispose()
+        }
+
+        $fileStream = [System.IO.File]::Open($OutPath, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write)
+        $writer = New-Object System.IO.BinaryWriter($fileStream)
+        try {
+            $writer.Write([UInt16]0) # reserved
+            $writer.Write([UInt16]1) # icon type
+            $writer.Write([UInt16]$frames.Count)
+
+            $offset = 6 + (16 * $frames.Count)
+            foreach ($frame in $frames) {
+                $entrySize = [int]$frame.Size
+                $writer.Write([byte]($entrySize -eq 256 ? 0 : $entrySize))
+                $writer.Write([byte]($entrySize -eq 256 ? 0 : $entrySize))
+                $writer.Write([byte]0)
+                $writer.Write([byte]0)
+                $writer.Write([UInt16]1)
+                $writer.Write([UInt16]32)
+                $writer.Write([UInt32]$frame.Data.Length)
+                $writer.Write([UInt32]$offset)
+                $offset += $frame.Data.Length
+            }
+
+            foreach ($frame in $frames) {
+                $writer.Write($frame.Data)
+            }
+        } finally {
+            $writer.Dispose()
+            $fileStream.Dispose()
+        }
     }
 
     $iconSourcePath = $resolvedIconPath.Path
-    $iconBytes = [System.IO.File]::ReadAllBytes($iconSourcePath)
-    $iconExtension = [System.IO.Path]::GetExtension($iconSourcePath).ToLowerInvariant()
     $generatedIcoPath = Join-Path $distDir "reminot.generated.ico"
-    if ($iconExtension -eq ".png" -or (Test-IsPng -Bytes $iconBytes)) {
-        Convert-PngBytesToIco -PngBytes $iconBytes -OutPath $generatedIcoPath
-        $iconSourcePath = $generatedIcoPath
-        Write-Host "Converted PNG icon to ICO: $iconSourcePath"
-    }
-
-    $iconArgs = @("--icon", $iconSourcePath)
-    Write-Host "Using icon: $iconSourcePath"
+    Convert-ImageToIco -InputPath $iconSourcePath -OutPath $generatedIcoPath
+    $iconArgs = @("--icon", $generatedIcoPath)
+    Write-Host "Using icon source: $iconSourcePath"
+    Write-Host "Generated Windows ICO: $generatedIcoPath"
 } else {
     Write-Host "Building without custom icon."
 }
