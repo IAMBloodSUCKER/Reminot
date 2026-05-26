@@ -3,6 +3,7 @@ package ru.demo;
 import ru.demo.model.Notification;
 import ru.demo.repository.NotificationRepository;
 import ru.demo.service.NotificationService;
+import ru.demo.system.AutostartManager;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -51,17 +52,19 @@ public class ReminotMainFrame extends JFrame {
     private final TerminalConsole console = new TerminalConsole();
     private final ReminderInputPanel inputPanel = new ReminderInputPanel();
     private final NotificationRepository notificationRepository = new NotificationRepository();
+    private final AutostartManager autostartManager = new AutostartManager();
     private final NotificationService notificationService;
     private Timer headerTickerTimer;
     private long nextNotificationId = 1L;
     private Point dragStartScreen;
     private Point dragStartWindow;
 
-    public ReminotMainFrame() {
+    public ReminotMainFrame(boolean startHiddenInTray) {
         super("Reminot");
         this.notificationService = new NotificationService(
                 notificationRepository,
-                this::onNotificationFired
+                this::onNotificationFired,
+                this::showFromTray
         );
 
         setUndecorated(true);
@@ -129,9 +132,11 @@ public class ReminotMainFrame extends JFrame {
             console.newLine();
         });
         inputPanel.setOnListAll(() -> printNotifications(
-                notificationRepository.allNotification(),
-                "all reminders"
+                notificationRepository.allActiveNotification(),
+                "active reminders"
         ));
+        inputPanel.setOnAutostartToggle(this::onAutostartToggle);
+        inputPanel.setAutostartEnabled(autostartManager.isEnabled());
         inputPanel.setOnExit(this::terminateApplication);
         inputPanel.setOnDeleteById(this::deleteReminderById);
         refreshActiveReminderList();
@@ -140,6 +145,15 @@ public class ReminotMainFrame extends JFrame {
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
+                if (notificationService.isTrayAvailable()) {
+                    setVisible(false);
+                    appendLogSection("window");
+                    console.appendDim("Окно свернуто в трей.");
+                    console.newLine();
+                    console.appendDim("Чтобы открыть приложение, кликните по иконке Reminot в трее.");
+                    console.newLine();
+                    return;
+                }
                 appendLogSection("window");
                 console.appendDim("Закрытие через системные кнопки отключено");
                 console.newLine();
@@ -161,8 +175,19 @@ public class ReminotMainFrame extends JFrame {
     }
 
     public static ReminotMainFrame open() {
-        ReminotMainFrame frame = new ReminotMainFrame();
-        frame.setVisible(true);
+        return open(false);
+    }
+
+    public static ReminotMainFrame open(boolean startHiddenInTray) {
+        ReminotMainFrame frame = new ReminotMainFrame(startHiddenInTray);
+        if (startHiddenInTray) {
+            frame.setVisible(false);
+            frame.appendLogSection("startup");
+            frame.console.appendDim("Приложение запущено в фоне (трей).");
+            frame.console.newLine();
+        } else {
+            frame.setVisible(true);
+        }
         return frame;
     }
 
@@ -495,6 +520,53 @@ public class ReminotMainFrame extends JFrame {
         });
     }
 
+    private boolean onAutostartToggle(boolean enabled) {
+        boolean applied = autostartManager.setEnabled(enabled);
+        appendLogSection("autostart");
+        if (applied) {
+            console.appendDim(enabled
+                    ? "Фоновый режим при старте Windows включен."
+                    : "Фоновый режим при старте Windows выключен.");
+            console.newLine();
+            return true;
+        }
+        console.appendDim("Не удалось изменить параметр фонового режима.");
+        console.newLine();
+        String details = autostartManager.getLastErrorMessage();
+        if (!details.isBlank()) {
+            console.appendDim("Причина: " + details);
+            console.newLine();
+        }
+        return false;
+    }
+
+    private void showFromTray(Notification sourceNotification) {
+        SwingUtilities.invokeLater(() -> {
+            if (!isVisible()) {
+                setVisible(true);
+            }
+            setExtendedState(JFrame.NORMAL);
+            toFront();
+            requestFocus();
+            inputPanel.focusInput();
+            appendLogSection("tray");
+            if (sourceNotification != null) {
+                String firedAt = sourceNotification.getTriggerAt() == null
+                        ? "неизвестное время"
+                        : sourceNotification.getTriggerAt().format(DATE_TIME);
+                String reminderText = sourceNotification.getMessage() == null
+                        ? "(без текста)"
+                        : sourceNotification.getMessage();
+                console.appendDim("Напоминание на " + firedAt + ": ");
+                console.appendAccent("\"" + reminderText + "\"");
+                console.newLine();
+            } else {
+                console.appendDim("Окно открыто из трея.");
+                console.newLine();
+            }
+        });
+    }
+
     private void appendLogSection(String title) {
         console.newLine();
         console.appendDim("------------------------------------------------");
@@ -527,9 +599,22 @@ public class ReminotMainFrame extends JFrame {
         minimizeButton.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
         minimizeButton.addActionListener(e -> setState(JFrame.ICONIFIED));
 
+        JButton closeButton = new JButton("x");
+        closeButton.setFont(TerminalPalette.MONO_SMALL);
+        closeButton.setForeground(TerminalPalette.TEXT);
+        closeButton.setBackground(new java.awt.Color(0x0A, 0x0A, 0x0A));
+        closeButton.setFocusPainted(false);
+        closeButton.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+        closeButton.addActionListener(e -> dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING)));
+
+        JPanel headerButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        headerButtons.setOpaque(false);
+        headerButtons.add(minimizeButton);
+        headerButtons.add(closeButton);
+
         dragHeader.add(title, BorderLayout.WEST);
         dragHeader.add(ticker, BorderLayout.CENTER);
-        dragHeader.add(minimizeButton, BorderLayout.EAST);
+        dragHeader.add(headerButtons, BorderLayout.EAST);
         installDragSupport(dragHeader);
         installDragSupport(title);
         installDragSupport(ticker);

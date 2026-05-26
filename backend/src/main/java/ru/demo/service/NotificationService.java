@@ -10,12 +10,15 @@ import java.awt.AWTException;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.PopupMenu;
+import java.awt.MenuItem;
 import java.awt.SystemTray;
 import java.awt.TrayIcon;
 import java.awt.image.BufferedImage;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -31,14 +34,22 @@ public class NotificationService {
 
     private final NotificationRepositoryInterface repository;
     private final Consumer<Notification> onNotificationFired;
+    private final Consumer<Notification> onTrayInteraction;
     private final ScheduledExecutorService scheduler;
 
     private TrayIcon trayIcon;
+    private volatile Notification lastTrayNotification;
     private volatile boolean started;
 
-    public NotificationService(NotificationRepositoryInterface repository, Consumer<Notification> onNotificationFired) {
+    public NotificationService(
+            NotificationRepositoryInterface repository,
+            Consumer<Notification> onNotificationFired,
+            Consumer<Notification> onTrayInteraction
+    ) {
         this.repository = repository;
         this.onNotificationFired = onNotificationFired;
+        this.onTrayInteraction = Objects.requireNonNullElse(onTrayInteraction, notification -> {
+        });
         this.scheduler = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
             @Override
             public Thread newThread(Runnable r) {
@@ -69,6 +80,10 @@ public class NotificationService {
         removeTrayIcon();
         AppEventLogger.info("NotificationService stopped");
         LOGGER.info("NotificationService stopped");
+    }
+
+    public boolean isTrayAvailable() {
+        return trayIcon != null;
     }
 
     private void pollNotifications() {
@@ -108,6 +123,7 @@ public class NotificationService {
     private void sendWindowsNotification(Notification notification) {
         String message = notification.getMessage();
         if (trayIcon != null) {
+            lastTrayNotification = notification;
             trayIcon.displayMessage("Reminot", message, TrayIcon.MessageType.INFO);
             return;
         }
@@ -128,6 +144,18 @@ public class NotificationService {
             trayIcon = new TrayIcon(createDummyImage(), "Reminot");
             trayIcon.setImageAutoSize(true);
             trayIcon.setToolTip("Reminot notifications");
+            trayIcon.setActionCommand("open-reminot");
+            trayIcon.addActionListener(e -> {
+                Notification source = lastTrayNotification;
+                lastTrayNotification = null;
+                SwingUtilities.invokeLater(() -> onTrayInteraction.accept(source));
+            });
+
+            PopupMenu popupMenu = new PopupMenu();
+            MenuItem openItem = new MenuItem("Open Reminot");
+            openItem.addActionListener(e -> SwingUtilities.invokeLater(() -> onTrayInteraction.accept(null)));
+            popupMenu.add(openItem);
+            trayIcon.setPopupMenu(popupMenu);
             tray.add(trayIcon);
         } catch (AWTException ex) {
             trayIcon = null;
@@ -141,6 +169,7 @@ public class NotificationService {
         }
         SystemTray.getSystemTray().remove(trayIcon);
         trayIcon = null;
+        lastTrayNotification = null;
     }
 
     private Image createDummyImage() {

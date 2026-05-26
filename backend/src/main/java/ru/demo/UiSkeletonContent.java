@@ -10,6 +10,15 @@ public final class UiSkeletonContent {
     }
 
     public static void fill(TerminalConsole console) {
+        String systemUser = System.getProperty("user.name", "unknown");
+        String computer = System.getenv("COMPUTERNAME");
+        if (computer == null || computer.isBlank()) {
+            computer = System.getenv("HOSTNAME");
+        }
+        if (computer == null || computer.isBlank()) {
+            computer = "unknown";
+        }
+
         console.appendDim("by: ");
         console.appendPlain("BloodSUCKER");
         console.newLine();
@@ -34,12 +43,12 @@ public final class UiSkeletonContent {
 
         console.appendTag("[#] ");
         console.appendPlain("Пользователь: ");
-        console.appendAccent("BloodSUCKER");
+        console.appendAccent(systemUser);
         console.newLine();
 
         console.appendTag("[#] ");
         console.appendPlain("Компьютер: ");
-        console.appendAccent("WIN-RRB4fSFAC");
+        console.appendAccent(computer);
         console.newLine();
         console.newLine();
 
