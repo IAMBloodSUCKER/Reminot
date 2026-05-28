@@ -1,5 +1,7 @@
 package ru.demo;
 
+import ru.demo.i18n.AppLanguage;
+import ru.demo.i18n.Text;
 import ru.demo.model.Notification;
 
 import javax.swing.BorderFactory;
@@ -18,11 +20,13 @@ import javax.swing.JTextField;
 import javax.swing.plaf.basic.BasicScrollBarUI;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
 
@@ -35,6 +39,14 @@ public class ReminderInputPanel extends JPanel {
     private final JList<NotificationListItem> activeRemindersList = new JList<>(activeRemindersModel);
     private final Color exitButtonBaseColor = new Color(0xB63D3D);
     private final Color exitButtonFlashColor = new Color(0xFF, 0x7A, 0x7A);
+
+    private final JLabel titleLabel = new JLabel();
+    private final JLabel inputLabel = new JLabel();
+    private final JTextArea hintArea = new JTextArea();
+    private final JLabel activeLabel = new JLabel();
+    private final JLabel languageLabel = new JLabel();
+    private final JButton languageRuButton = createActionButton("RU", new Color(0x1E5EA0));
+    private final JButton languageEnButton = createActionButton("EN", new Color(0x1E5EA0));
     private JButton exitButton;
 
     private Predicate<String> onSubmit = text -> true;
@@ -46,6 +58,8 @@ public class ReminderInputPanel extends JPanel {
     };
     private LongConsumer onDeleteById = id -> {
     };
+    private Consumer<AppLanguage> onLanguageChange = language -> {
+    };
 
     public ReminderInputPanel() {
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
@@ -56,16 +70,9 @@ public class ReminderInputPanel extends JPanel {
         ));
         setPreferredSize(new Dimension(250, 0));
 
-        JLabel title = new JLabel("NEW REMINDER");
-        title.setForeground(TerminalPalette.BANNER);
-        title.setFont(TerminalPalette.MONO_SMALL);
-        title.setAlignmentX(LEFT_ALIGNMENT);
-
-        JLabel label = new JLabel("Input:");
-        label.setForeground(TerminalPalette.DIM);
-        label.setFont(TerminalPalette.MONO_SMALL);
-        label.setBorder(BorderFactory.createEmptyBorder(10, 0, 6, 0));
-        label.setAlignmentX(LEFT_ALIGNMENT);
+        stylePanelLabel(titleLabel, TerminalPalette.BANNER);
+        stylePanelLabel(inputLabel, TerminalPalette.DIM);
+        inputLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 6, 0));
 
         inputField.setFont(TerminalPalette.MONO_SMALL);
         inputField.setForeground(TerminalPalette.TEXT);
@@ -79,29 +86,21 @@ public class ReminderInputPanel extends JPanel {
         inputField.setAlignmentX(LEFT_ALIGNMENT);
         inputField.addActionListener(e -> submitInput());
 
-        JButton addButton = createActionButton("Add", TerminalPalette.ACCENT);
+        JButton addButton = createActionButton(Text.BTN_ADD, TerminalPalette.ACCENT);
         addButton.addActionListener(e -> submitInput());
 
-        JTextArea hint = new JTextArea(
-                "Пример:\n" +
-                        "Перезвонить начальнику\n" +
-                        "Выключить чайник"
-        );
-        hint.setEditable(false);
-        hint.setFocusable(false);
-        hint.setOpaque(false);
-        hint.setLineWrap(true);
-        hint.setWrapStyleWord(true);
-        hint.setForeground(TerminalPalette.DIM);
-        hint.setFont(TerminalPalette.MONO_SMALL);
-        hint.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
-        hint.setAlignmentX(LEFT_ALIGNMENT);
+        hintArea.setEditable(false);
+        hintArea.setFocusable(false);
+        hintArea.setOpaque(false);
+        hintArea.setLineWrap(true);
+        hintArea.setWrapStyleWord(true);
+        hintArea.setForeground(TerminalPalette.DIM);
+        hintArea.setFont(TerminalPalette.MONO_SMALL);
+        hintArea.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+        hintArea.setAlignmentX(LEFT_ALIGNMENT);
 
-        JLabel activeLabel = new JLabel("Active reminders:");
-        activeLabel.setForeground(TerminalPalette.DIM);
-        activeLabel.setFont(TerminalPalette.MONO_SMALL);
+        stylePanelLabel(activeLabel, TerminalPalette.DIM);
         activeLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 6, 0));
-        activeLabel.setAlignmentX(LEFT_ALIGNMENT);
 
         activeRemindersList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         activeRemindersList.setFont(TerminalPalette.MONO_SMALL);
@@ -129,26 +128,41 @@ public class ReminderInputPanel extends JPanel {
         activeScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         styleListScrollBar(activeScroll.getVerticalScrollBar());
 
-        JButton cleanConsole = createActionButton("Clean console", new Color(0x2D, 0x84, 0xD8));
+        JButton cleanConsole = createActionButton(Text.BTN_CLEAN_CONSOLE, new Color(0x2D, 0x84, 0xD8));
         cleanConsole.addActionListener(e -> onClean.run());
 
-        JButton listAll = createActionButton("List all", new Color(0x1E5EA0));
+        JButton listAll = createActionButton(Text.BTN_LIST_ALL, new Color(0x1E5EA0));
         listAll.addActionListener(e -> onListAll.run());
 
-        JButton deleteReminder = createActionButton("Delete selected", new Color(0xD46A6A));
+        JButton deleteReminder = createActionButton(Text.BTN_DELETE_SELECTED, new Color(0xD46A6A));
         deleteReminder.addActionListener(e -> deleteSelectedReminder());
 
-        exitButton = createActionButton("ЗАВЕРШИТЬ РАБОТУ", exitButtonBaseColor);
+        exitButton = createActionButton(Text.BTN_EXIT, exitButtonBaseColor);
         exitButton.addActionListener(e -> onExit.run());
 
-        add(title);
-        add(label);
+        stylePanelLabel(languageLabel, TerminalPalette.DIM);
+        languageLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 6, 0));
+
+        languageRuButton.addActionListener(e -> selectLanguage(AppLanguage.RU));
+        languageEnButton.addActionListener(e -> selectLanguage(AppLanguage.EN));
+
+        JPanel languageButtons = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        languageButtons.setOpaque(false);
+        languageButtons.setAlignmentX(LEFT_ALIGNMENT);
+        languageButtons.setMaximumSize(new Dimension(Integer.MAX_VALUE, 34));
+        languageButtons.add(languageRuButton);
+        languageButtons.add(languageEnButton);
+
+        add(titleLabel);
+        add(inputLabel);
         add(inputField);
         add(javax.swing.Box.createRigidArea(new Dimension(0, 8)));
         add(addButton);
-        add(hint);
+        add(hintArea);
         add(activeLabel);
         add(activeScroll);
+        add(languageLabel);
+        add(languageButtons);
         add(javax.swing.Box.createRigidArea(new Dimension(0, 6)));
         add(cleanConsole);
         add(javax.swing.Box.createRigidArea(new Dimension(0, 6)));
@@ -158,6 +172,8 @@ public class ReminderInputPanel extends JPanel {
         add(javax.swing.Box.createRigidArea(new Dimension(0, 10)));
         add(exitButton);
         add(javax.swing.Box.createVerticalGlue());
+
+        applyLanguage();
     }
 
     public void setOnSubmit(Predicate<String> handler) {
@@ -182,6 +198,21 @@ public class ReminderInputPanel extends JPanel {
     public void setOnDeleteById(LongConsumer handler) {
         this.onDeleteById = Objects.requireNonNullElse(handler, id -> {
         });
+    }
+
+    public void setOnLanguageChange(Consumer<AppLanguage> handler) {
+        this.onLanguageChange = Objects.requireNonNullElse(handler, language -> {
+        });
+    }
+
+    public void applyLanguage() {
+        titleLabel.setText(Text.panelNewReminderTitle());
+        inputLabel.setText(Text.panelInputLabel());
+        activeLabel.setText(Text.panelActiveRemindersLabel());
+        languageLabel.setText(Text.panelLanguageLabel());
+        hintArea.setText(Text.panelHint());
+        exitButton.setText(Text.BTN_EXIT);
+        updateLanguageButtons();
     }
 
     public void setActiveReminders(List<Notification> reminders) {
@@ -214,6 +245,32 @@ public class ReminderInputPanel extends JPanel {
         });
         timer.setInitialDelay(0);
         timer.start();
+    }
+
+    private void selectLanguage(AppLanguage language) {
+        if (Text.language() == language) {
+            return;
+        }
+        Text.setLanguage(language);
+        applyLanguage();
+        onLanguageChange.accept(language);
+    }
+
+    private void updateLanguageButtons() {
+        AppLanguage current = Text.language();
+        styleLanguageButton(languageRuButton, current == AppLanguage.RU);
+        styleLanguageButton(languageEnButton, current == AppLanguage.EN);
+    }
+
+    private void styleLanguageButton(JButton button, boolean selected) {
+        button.setBackground(selected ? TerminalPalette.ACCENT : new Color(0x1E5EA0));
+        button.setForeground(selected ? TerminalPalette.BACKGROUND : TerminalPalette.BACKGROUND);
+    }
+
+    private void stylePanelLabel(JLabel label, Color color) {
+        label.setForeground(color);
+        label.setFont(TerminalPalette.MONO_SMALL);
+        label.setAlignmentX(LEFT_ALIGNMENT);
     }
 
     private JButton createActionButton(String text, Color background) {

@@ -1,5 +1,6 @@
 package ru.demo;
 
+import ru.demo.i18n.Text;
 import ru.demo.utils.Checking;
 
 public final class UiSkeletonContent {
@@ -37,28 +38,28 @@ public final class UiSkeletonContent {
         console.newLine();
 
         console.appendTag("[#] ");
-        console.appendPlain("ОС: ");
+        console.appendPlain(Text.osLabel());
         console.appendAccent(System.getProperty("os.name") + " " + System.getProperty("os.version"));
         console.newLine();
 
         console.appendTag("[#] ");
-        console.appendPlain("Пользователь: ");
+        console.appendPlain(Text.userLabel());
         console.appendAccent(systemUser);
         console.newLine();
 
         console.appendTag("[#] ");
-        console.appendPlain("Компьютер: ");
+        console.appendPlain(Text.computerLabel());
         console.appendAccent(computer);
         console.newLine();
         console.newLine();
 
-        console.appendPlain("Проверка обновлений...");
+        console.appendPlain(Text.checkingUpdates());
         console.newLine();
 
-        console.appendOkLine("Версия приложения " + CHECK.checkVersion());
+        console.appendOkLine(Text.appVersionLine(CHECK.checkVersion()));
         console.newLine();
 
-        console.appendPlain("Ожидание напоминаний...");
+        console.appendPlain(Text.waitingForReminders());
         console.newLine();
     }
 }

@@ -1,5 +1,7 @@
 package ru.demo.system;
 
+import ru.demo.i18n.Text;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -8,8 +10,6 @@ public final class AutostartManager {
 
     private static final String RUN_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
     private static final String VALUE_NAME = "Reminot";
-    private static final String REG_ACCESS_DENIED_HINT = "Нет прав на изменение автозапуска для текущего пользователя.";
-    private static final String EXE_REQUIRED_HINT = "Эта функция доступна в установленной EXE-версии приложения.";
     private String lastErrorMessage = "";
 
     public boolean isSupported() {
@@ -27,13 +27,13 @@ public final class AutostartManager {
     public boolean setEnabled(boolean enabled) {
         lastErrorMessage = "";
         if (!isSupported()) {
-            lastErrorMessage = "Автозапуск поддерживается только на Windows.";
+            lastErrorMessage = Text.autostartWindowsOnly();
             return false;
         }
         if (enabled) {
             String startupCommand = resolveStartupCommand();
             if (startupCommand == null || startupCommand.isBlank()) {
-                lastErrorMessage = EXE_REQUIRED_HINT;
+                lastErrorMessage = Text.autostartExeRequired();
                 return false;
             }
             CommandResult result = runReg(
@@ -107,13 +107,13 @@ public final class AutostartManager {
         if (result.output != null) {
             String lower = result.output.toLowerCase();
             if (lower.contains("access is denied")) {
-                return REG_ACCESS_DENIED_HINT;
+                return Text.autostartAccessDenied();
             }
         }
         if (result.exitCode == 5) {
-            return REG_ACCESS_DENIED_HINT;
+            return Text.autostartAccessDenied();
         }
-        return "Не удалось записать параметр автозапуска в реестр Windows.";
+        return Text.autostartRegistryFailed();
     }
 
     public static final class CommandResult {

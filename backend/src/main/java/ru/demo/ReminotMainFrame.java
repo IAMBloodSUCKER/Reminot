@@ -1,5 +1,6 @@
 package ru.demo;
 
+import ru.demo.i18n.Text;
 import ru.demo.model.Notification;
 import ru.demo.repository.NotificationRepository;
 import ru.demo.service.NotificationService;
@@ -48,14 +49,13 @@ public class ReminotMainFrame extends JFrame {
     private static final int RESIZE_MARGIN = 6;
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
-    private static final String HEADER_TICKER_MESSAGE =
-            "Введите текст напоминания в Input -> нажмите Add -> установите дату и время";
     private final TerminalConsole console = new TerminalConsole();
     private final ReminderInputPanel inputPanel = new ReminderInputPanel();
     private final NotificationRepository notificationRepository = new NotificationRepository();
     private final AutostartManager autostartManager = new AutostartManager();
     private final NotificationService notificationService;
     private Timer headerTickerTimer;
+    private HeaderTicker headerTicker;
     private long nextNotificationId = 1L;
     private Point dragStartScreen;
     private Point dragStartWindow;
@@ -112,7 +112,7 @@ public class ReminotMainFrame extends JFrame {
             notificationRepository.addNotification(notification);
             refreshActiveReminderList();
 
-            appendLogSection("scheduled reminder");
+            appendLogSection(Text.logScheduledReminder());
             console.appendTimestamp("[" + LocalTime.now().format(TIME) + "]");
             console.appendPlain("  queued: ");
             console.appendAccent(text);
@@ -126,19 +126,20 @@ public class ReminotMainFrame extends JFrame {
         });
         inputPanel.setOnClean(() -> {
             console.clearConsole();
-            console.appendTimestamp("Консоль обновлена [" + LocalTime.now().format(TIME) + "]\n");
+            console.appendTimestamp(Text.consoleRefreshed(LocalTime.now().format(TIME)));
             UiSkeletonContent.fill(console);
 
-            appendLogSection("console");
-            console.appendDim("консоль очищена");
+            appendLogSection(Text.logConsole());
+            console.appendDim(Text.consoleCleared());
             console.newLine();
         });
         inputPanel.setOnListAll(() -> printNotifications(
                 notificationRepository.allActiveNotification(),
-                "active reminders"
+                Text.logActiveReminders()
         ));
         inputPanel.setOnExit(this::terminateApplication);
         inputPanel.setOnDeleteById(this::deleteReminderById);
+        inputPanel.setOnLanguageChange(language -> applyLanguage());
         refreshActiveReminderList();
         notificationService.start();
         ensureAutostartEnabledByDefault();
@@ -148,19 +149,19 @@ public class ReminotMainFrame extends JFrame {
             public void windowClosing(WindowEvent e) {
                 if (notificationService.isTrayAvailable()) {
                     setVisible(false);
-                    appendLogSection("window");
-                    console.appendDim("Окно свернуто в трей.");
+                    appendLogSection(Text.logWindow());
+                    console.appendDim(Text.windowMinimizedToTray());
                     console.newLine();
-                    console.appendDim("Чтобы открыть приложение, кликните по иконке Reminot в трее.");
+                    console.appendDim(Text.openFromTrayHint());
                     console.newLine();
                     return;
                 }
-                appendLogSection("window");
-                console.appendDim("Закрытие через системные кнопки отключено");
+                appendLogSection(Text.logWindow());
+                console.appendDim(Text.systemCloseDisabled());
                 console.newLine();
-                console.appendPlain("Нажмите кнопку ");
-                console.appendAccent("ЗАВЕРШИТЬ РАБОТУ");
-                console.appendPlain(" справа внизу.");
+                console.appendPlain(Text.pressExitButtonPrefix());
+                console.appendAccent(Text.BTN_EXIT);
+                console.appendPlain(Text.pressExitButtonSuffix());
                 console.newLine();
                 inputPanel.flashExitButton();
             }
@@ -190,11 +191,11 @@ public class ReminotMainFrame extends JFrame {
         ReminotMainFrame frame = new ReminotMainFrame(startHiddenInTray);
         if (startHiddenInTray) {
             frame.setVisible(false);
-            frame.appendLogSection("startup");
-            frame.console.appendDim("Приложение запущено в фоне (трей).");
+            frame.appendLogSection(Text.logStartup());
+            frame.console.appendDim(Text.startedInBackgroundTray());
             frame.console.newLine();
         } else {
-            frame.setVisible(true);
+        frame.setVisible(true);
         }
         return frame;
     }
@@ -222,7 +223,7 @@ public class ReminotMainFrame extends JFrame {
         reminderLabel.setForeground(TerminalPalette.TEXT);
         reminderLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 6, 0));
 
-        JLabel title = new JLabel("Когда напомнить:");
+        JLabel title = new JLabel(Text.whenToRemind());
         title.setFont(TerminalPalette.MONO_SMALL);
         title.setForeground(TerminalPalette.DIM);
         title.setBorder(BorderFactory.createEmptyBorder(0, 0, 6, 0));
@@ -234,8 +235,8 @@ public class ReminotMainFrame extends JFrame {
         center.add(dateTimeField, BorderLayout.SOUTH);
         content.add(center, BorderLayout.CENTER);
 
-        JButton okButton = createDialogButton("Запланировать", TerminalPalette.OK);
-        JButton cancelButton = createDialogButton("Отмена", new java.awt.Color(0x2D, 0x84, 0xD8));
+        JButton okButton = createDialogButton(Text.BTN_SCHEDULE, TerminalPalette.OK);
+        JButton cancelButton = createDialogButton(Text.BTN_CANCEL, new java.awt.Color(0x2D, 0x84, 0xD8));
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
@@ -257,7 +258,7 @@ public class ReminotMainFrame extends JFrame {
         header.setBackground(new java.awt.Color(0x0A, 0x0A, 0x0A));
         header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, TerminalPalette.BANNER));
 
-        JLabel headerTitle = new JLabel("Время уведомления");
+        JLabel headerTitle = new JLabel(Text.notificationTimeTitle());
         headerTitle.setFont(TerminalPalette.MONO_SMALL);
         headerTitle.setForeground(TerminalPalette.TEXT);
         headerTitle.setBorder(BorderFactory.createEmptyBorder(7, 10, 7, 10));
@@ -278,7 +279,7 @@ public class ReminotMainFrame extends JFrame {
         shell.add(header, BorderLayout.NORTH);
         shell.add(content, BorderLayout.CENTER);
 
-        JDialog dialog = new JDialog(this, "Время уведомления", true);
+        JDialog dialog = new JDialog(this, Text.notificationTimeTitle(), true);
         dialog.setUndecorated(true);
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         dialog.setContentPane(shell);
@@ -290,7 +291,7 @@ public class ReminotMainFrame extends JFrame {
                 picked[0] = LocalDateTime.parse(normalized, DATE_TIME);
                 dialog.dispose();
             } catch (DateTimeParseException ex) {
-                errorLabel.setText("Формат: дд.мм.гггг чч:мм");
+                errorLabel.setText(Text.dateTimeFormatError());
                 dateTimeField.requestFocusInWindow();
                 dateTimeField.selectAll();
             }
@@ -383,7 +384,7 @@ public class ReminotMainFrame extends JFrame {
         console.newLine();
 
         if (notifications.isEmpty()) {
-            console.appendDim("  список пуст");
+            console.appendDim(Text.listEmpty());
             console.newLine();
             return;
         }
@@ -407,7 +408,7 @@ public class ReminotMainFrame extends JFrame {
     private void deleteReminderById(long id) {
         Notification notification = notificationRepository.getNotificationById(id);
         if (notification == null) {
-            appendLogSection("delete reminder");
+            appendLogSection(Text.logDeleteReminder());
             console.appendTimestamp("[" + LocalTime.now().format(TIME) + "]");
             console.appendPlain("  id not found: ");
             console.appendAccent(String.valueOf(id));
@@ -421,7 +422,7 @@ public class ReminotMainFrame extends JFrame {
 
         notificationRepository.deleteNotificationById(id);
         refreshActiveReminderList();
-        appendLogSection("delete reminder");
+        appendLogSection(Text.logDeleteReminder());
         console.appendTimestamp("[" + LocalTime.now().format(TIME) + "]");
         console.appendPlain("  deleted id=");
         console.appendAccent(String.valueOf(id));
@@ -433,7 +434,7 @@ public class ReminotMainFrame extends JFrame {
         content.setBackground(TerminalPalette.BACKGROUND);
         content.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
 
-        JLabel title = new JLabel("Удалить выбранное напоминание?");
+        JLabel title = new JLabel(Text.deleteSelectedQuestion());
         title.setFont(TerminalPalette.MONO_SMALL);
         title.setForeground(TerminalPalette.DIM);
 
@@ -454,8 +455,8 @@ public class ReminotMainFrame extends JFrame {
         center.add(itemLabel, BorderLayout.CENTER);
         content.add(center, BorderLayout.CENTER);
 
-        JButton cancelButton = createDialogButton("Отмена", new java.awt.Color(0x2D, 0x84, 0xD8));
-        JButton deleteButton = createDialogButton("Удалить", new java.awt.Color(0xD46A6A));
+        JButton cancelButton = createDialogButton(Text.BTN_CANCEL, new java.awt.Color(0x2D, 0x84, 0xD8));
+        JButton deleteButton = createDialogButton(Text.BTN_DELETE, new java.awt.Color(0xD46A6A));
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
@@ -467,7 +468,7 @@ public class ReminotMainFrame extends JFrame {
         header.setBackground(new java.awt.Color(0x0A, 0x0A, 0x0A));
         header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, TerminalPalette.BANNER));
 
-        JLabel headerTitle = new JLabel("Удаление напоминания");
+        JLabel headerTitle = new JLabel(Text.deleteReminderTitle());
         headerTitle.setFont(TerminalPalette.MONO_SMALL);
         headerTitle.setForeground(TerminalPalette.TEXT);
         headerTitle.setBorder(BorderFactory.createEmptyBorder(7, 10, 7, 10));
@@ -488,7 +489,7 @@ public class ReminotMainFrame extends JFrame {
         shell.add(header, BorderLayout.NORTH);
         shell.add(content, BorderLayout.CENTER);
 
-        JDialog dialog = new JDialog(this, "Удаление напоминания", true);
+        JDialog dialog = new JDialog(this, Text.deleteReminderTitle(), true);
         dialog.setUndecorated(true);
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         dialog.setContentPane(shell);
@@ -531,7 +532,7 @@ public class ReminotMainFrame extends JFrame {
                 return;
             }
 
-            appendLogSection("notification fired");
+            appendLogSection(Text.logNotificationFired());
             console.appendTimestamp("[" + LocalTime.now().format(TIME) + "]");
             console.appendPlain("  fired id=");
             console.appendAccent(String.valueOf(notification.getId()));
@@ -546,17 +547,17 @@ public class ReminotMainFrame extends JFrame {
             return;
         }
         boolean applied = autostartManager.setEnabled(true);
-        appendLogSection("autostart");
+        appendLogSection(Text.logAutostart());
         if (applied) {
-            console.appendDim("Фоновый режим при старте Windows включен по умолчанию.");
+            console.appendDim(Text.autostartEnabledDefault());
             console.newLine();
             return;
         }
-        console.appendDim("Не удалось включить фоновый режим при старте Windows.");
+        console.appendDim(Text.autostartEnableFailed());
         console.newLine();
         String details = autostartManager.getLastErrorMessage();
         if (!details.isBlank()) {
-            console.appendDim("Причина: " + details);
+            console.appendDim(Text.reasonPrefix() + details);
             console.newLine();
         }
     }
@@ -570,19 +571,19 @@ public class ReminotMainFrame extends JFrame {
             toFront();
             requestFocus();
             inputPanel.focusInput();
-            appendLogSection("tray");
+            appendLogSection(Text.logTray());
             if (sourceNotification != null) {
                 String firedAt = sourceNotification.getTriggerAt() == null
-                        ? "неизвестное время"
+                        ? Text.unknownTime()
                         : sourceNotification.getTriggerAt().format(DATE_TIME);
                 String reminderText = sourceNotification.getMessage() == null
-                        ? "(без текста)"
+                        ? Text.noText()
                         : sourceNotification.getMessage();
-                console.appendDim("Напоминание на " + firedAt + ": ");
+                console.appendDim(Text.reminderAtPrefix() + firedAt + ": ");
                 console.appendAccent("\"" + reminderText + "\"");
                 console.newLine();
             } else {
-                console.appendDim("Окно открыто из трея.");
+                console.appendDim(Text.openedFromTray());
                 console.newLine();
             }
         });
@@ -621,8 +622,8 @@ public class ReminotMainFrame extends JFrame {
         title.setFont(TerminalPalette.MONO_SMALL);
         title.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
 
-        HeaderTicker ticker = new HeaderTicker(HEADER_TICKER_MESSAGE);
-        ticker.setForeground(TerminalPalette.ACCENT);
+        headerTicker = new HeaderTicker(Text.headerTicker());
+        headerTicker.setForeground(TerminalPalette.ACCENT);
         ticker.setFont(TerminalPalette.MONO_SMALL);
         ticker.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 10));
 
@@ -648,13 +649,22 @@ public class ReminotMainFrame extends JFrame {
         headerButtons.add(closeButton);
 
         dragHeader.add(title, BorderLayout.WEST);
-        dragHeader.add(ticker, BorderLayout.CENTER);
+        dragHeader.add(headerTicker, BorderLayout.CENTER);
         dragHeader.add(headerButtons, BorderLayout.EAST);
         installDragSupport(dragHeader);
         installDragSupport(title);
-        installDragSupport(ticker);
-        startTickerAnimation(ticker);
+        installDragSupport(headerTicker);
+        startTickerAnimation(headerTicker);
         return dragHeader;
+    }
+
+    private void applyLanguage() {
+        inputPanel.applyLanguage();
+        if (headerTicker != null) {
+            headerTicker.setMessage(Text.headerTicker());
+        }
+        console.clearConsole();
+        UiSkeletonContent.fill(console);
     }
 
     private void startTickerAnimation(HeaderTicker ticker) {
@@ -900,12 +910,18 @@ public class ReminotMainFrame extends JFrame {
 
     private static final class HeaderTicker extends JPanel {
         private static final int GAP_PX = 56;
-        private final String message;
+        private String message;
         private double offsetPx;
 
         private HeaderTicker(String message) {
             this.message = message;
             setOpaque(false);
+        }
+
+        private void setMessage(String message) {
+            this.message = message;
+            offsetPx = 0;
+            repaint();
         }
 
         private void advance(double stepPx) {
