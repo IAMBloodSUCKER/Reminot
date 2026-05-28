@@ -624,8 +624,8 @@ public class ReminotMainFrame extends JFrame {
 
         headerTicker = new HeaderTicker(Text.headerTicker());
         headerTicker.setForeground(TerminalPalette.ACCENT);
-        ticker.setFont(TerminalPalette.MONO_SMALL);
-        ticker.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 10));
+        headerTicker.setFont(TerminalPalette.MONO_SMALL);
+        headerTicker.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 10));
 
         JButton minimizeButton = new JButton("_");
         minimizeButton.setFont(TerminalPalette.MONO_SMALL);

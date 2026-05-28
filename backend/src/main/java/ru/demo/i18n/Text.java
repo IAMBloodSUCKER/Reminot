@@ -26,11 +26,11 @@ public final class Text {
     }
 
     public static String panelNewReminderTitle() {
-        return language == AppLanguage.EN ? "NEW REMINDER" : "НОВОЕ НАПОМИНАНИЕ";
+        return language == AppLanguage.EN ? "Language:" : "Язык:";
     }
 
     public static String panelInputLabel() {
-        return language == AppLanguage.EN ? "Input:" : "Текст:";
+        return language == AppLanguage.EN ? "New reminder:" : "Новое напоминание:";
     }
 
     public static String panelActiveRemindersLabel() {
